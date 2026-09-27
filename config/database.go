@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/stywzn/Go-Interaction-Service/internal/model" 
+	"github.com/stywzn/Go-Interaction-Service/internal/model"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -25,11 +25,15 @@ func InitConfig() {
 	}
 
 	// 利用 GORM 的 AutoMigrate 自动建表
-	err = db.AutoMigrate(&model.LikeRecord{})
+	err = db.AutoMigrate(
+		&model.LikeRecord{},
+		&model.User{},
+		&model.LotteryRecord{},
+	)
 	if err != nil {
 		log.Fatalf(" MySQL 自动建表失败: %v", err)
 	}
-	DB = db  
+	DB = db
 	fmt.Println(" MySQL 连接成功，且数据表已就绪!")
 
 	// 连接 redis

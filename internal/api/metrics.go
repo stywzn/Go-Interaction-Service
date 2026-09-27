@@ -2,37 +2,42 @@
 
 package api
 
-import(
+import (
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // 定义指标
-// http请求总数，点赞总数，限流拦截总数
+// 秒杀相关: QPS、成功/失败次数、库存剩余、中奖人数、限流拦截次数
 
 var (
-	//http请求总数
-	httpRequestsTotal = prometheus.NewCounter(
+	// 秒杀请求总数
+	lotteryRequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "interaction_service_http_requests_total",
-			Help: "Total number of HTTP requests handled by the interaction service",
+			Name: "interaction_service_lottery_requests_total",
+			Help: "Total number of seckill lottery requests",
 		},
-		[]string{"method", "path", "status"}
+		[]string{"result"}, // success 或 failed
 	)
-	//点赞总数
-	likesTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "interaction_service_likes_total",
-			Help: "Total number of likes/unlikes requests",
+	// 秒杀库存剩余 (实时库存)
+	lotteryInventoryRemaining = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "interaction_service_lottery_inventory_remaining",
+			Help: "Remaining inventory for seckill lottery",
 		},
-		[]string{"action","result"}
+	)
+	// 秒杀中奖用户总数
+	lotteryWinnersTotal = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "interaction_service_lottery_winners_total",
+			Help: "Total number of seckill winners",
+		},
 	)
 	// 被限流拦截请求总数
-	reteLimiteBlocked = prometheus.NewCounter(
+	rateLimitBlockedTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "interaction_service_rate_limit_blocked_total",
 			Help: "Total number of requests blocked by rate limiting",
-		}
+		},
 	)
 )
 
@@ -40,14 +45,27 @@ func InitMetrics() {
 
 }
 
-func RecordHTTPRequest(method, path, status string) {
-	httpRequestsTotal.WithLabelValues(path,method,status).Inc()
+// RecordLotterySuccess 记录秒杀成功
+func RecordLotterySuccess() {
+	lotteryRequestsTotal.WithLabelValues("success").Inc()
 }
 
-func RecordLikeRequest(action,result string) {
-	LikeRequestTotal.WithLabelValues(action,result).Inc()
+// RecordLotteryFailed 记录秒杀失败
+func RecordLotteryFailed() {
+	lotteryRequestsTotal.WithLabelValues("failed").Inc()
 }
 
+// UpdateInventory 更新库存
+func UpdateInventory(remaining int64) {
+	lotteryInventoryRemaining.Set(float64(remaining))
+}
+
+// UpdateWinnersCount 更新中奖人数
+func UpdateWinnersCount(count int64) {
+	lotteryWinnersTotal.Set(float64(count))
+}
+
+// RecordRateLimitBlocked 记录限流拦截
 func RecordRateLimitBlocked() {
 	rateLimitBlockedTotal.Inc()
 }

@@ -17,3 +17,29 @@ type LikeRecord struct {
 func (LikeRecord) TableName() string {
 	return "likes"
 }
+
+// User 用户模型
+type User struct {
+	ID           int64     `gorm:"primaryKey;autoIncrement"`
+	Username     string    `gorm:"column:username;unique;not null"`
+	Password     string    `gorm:"column:password;not null"`
+	StorageQuota int64     `gorm:"column:storage_quota;default:5"` // 默认 5GB
+	CreatedAt    time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt    time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+func (User) TableName() string {
+	return "users"
+}
+
+// LotteryRecord 抽奖/秒杀记录
+type LotteryRecord struct {
+	ID        int64     `gorm:"primaryKey;autoIncrement"`
+	UserID    int64     `gorm:"column:user_id;uniqueIndex:uk_user_lottery;not null"`
+	Status    int       `gorm:"column:status;type:tinyint;default:1"` // 1:中奖 0:未中奖
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
+}
+
+func (LotteryRecord) TableName() string {
+	return "lottery_records"
+}

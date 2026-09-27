@@ -18,12 +18,19 @@ import (
 func main() {
 	// 初始化组件
 	config.InitConfig()
+
+	// 初始化抽奖库存为 4 个名额
+	ctx := context.Background()
+	if err := service.InitLotteryInventory(ctx, 4); err != nil {
+		log.Printf("初始化抽奖库存失败: %v\n", err)
+	}
+
 	// 启动后台异步落盘的流水线消费者
 	go service.StartAsyncFlusher()
 	// 初始化 Gin 框架引擎
 	r := gin.Default()
 
-	// 服务的第一层安全防护  
+	// 服务的第一层安全防护
 	// 强制浏览器不要瞎猜内容类型，严格按照我们返回的 Content-Type 解析
 	// 禁止别的网站用 iframe 嵌套我们的接口（防点击劫持）
 	// 开启浏览器级别的 XSS 防护
@@ -35,15 +42,19 @@ func main() {
 		c.JSON(200, gin.H{"msg": "pong! 服务已启动"})
 	})
 
-	// 暴露点赞接口
+	// 无需认证的公开接口
+	r.POST("/signup", api.HandleSignup)
+	r.POST("/login", api.HandleLogin)
+	r.GET("/lottery/status", api.HandleLotteryStatus)
+
+	// 秒杀接口
 	v1 := r.Group("/api/v1")
 
 	// 开启 IP 限流
 	v1.Use(api.RateLimitMiddleware())
+	v1.Use(api.AuthMiddleware())
 	{
-		v1.POST("/like", api.HandleLike)
-		v1.GET("/like/count", api.HandleGetLikeCount)
-		v1.GET("/leaderboard", api.HandleGetLeaderboard)
+		v1.POST("/lottery/seckill", api.HandleJoinLottery)
 	}
 
 	// 配置 HTTP Server

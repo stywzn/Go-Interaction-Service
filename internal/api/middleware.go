@@ -3,10 +3,12 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stywzn/Go-Interaction-Service/config"
+	"github.com/stywzn/Go-Interaction-Service/internal/service"
 )
 
 // SecurityHeadersMiddleware 第一道防线：全局安全响应头
@@ -48,6 +50,7 @@ func RateLimitMiddleware() gin.HandlerFunc {
 		// 核心审判逻辑：同一个 IP，10 秒内只允许发 50 次请求！
 		if count > 50 {
 			// 直接在网关层截断，连 Controller 都进不去！
+			RecordRateLimitBlocked()
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"code": 429,
 				"msg":  "警告：您的操作太频繁，触发系统安全限流！",
@@ -56,5 +59,34 @@ func RateLimitMiddleware() gin.HandlerFunc {
 		}
 
 		c.Next() // 校验通过，放行！
+	}
+}
+
+// AuthMiddleware JWT 验证中间件
+func AuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "缺少 Authorization Header"})
+			return
+		}
+
+		// 期望格式：Bearer <token>
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "无效的 Token 格式"})
+			return
+		}
+
+		claims, err := service.VerifyToken(parts[1])
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "Token 验证失败"})
+			return
+		}
+
+		// 将用户信息存入 context
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Next()
 	}
 }
